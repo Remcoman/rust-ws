@@ -6,12 +6,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("start");
 
     for mut conn in s.iter_connections().auto_accept() {
-        std::thread::spawn(move || {
-            for message in conn.iter_messages().ok() {
-                println!("{:?}", message);
-            }
-            println!("close");
+        let mut sender = conn.on_message(|message| {
+            println!("{:?}", message);
         });
+
+        std::thread::spawn(move || sender.send(rust_ws::message::Message::Pong).unwrap());
     }
 
     println!("done");

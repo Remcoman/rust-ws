@@ -1,5 +1,5 @@
 use std::{
-    io::Write,
+    io::{Read, Write},
     net::{SocketAddr, TcpStream},
 };
 
@@ -35,7 +35,7 @@ impl WebSocketClient {
         self.connection.send(message)
     }
 
-    pub fn iter_messages(&mut self) -> MessageIter<TcpStream> {
+    pub fn iter_messages(&mut self) -> MessageIter<impl Read> {
         self.connection.iter_messages()
     }
 }

@@ -6,10 +6,7 @@ use std::{
     task::Poll,
 };
 
-use crate::{
-    connection::WebSocketConnection,
-    http::{self, HTTPHeader},
-};
+use crate::{connection::WebSocketConnection, http::HTTPHeader};
 
 pub struct WebSocketServerOptions {
     pub port: u16,
@@ -81,8 +78,8 @@ impl<'a> ConnectionIter<'a> {
             _ => ConnectionError::UnknownError,
         })?;
 
-        let request_header = http::HTTPHeader::read(&mut stream)
-            .map_err(|_| ConnectionError::InvalidRequestHeader)?;
+        let request_header =
+            HTTPHeader::read(&mut stream).map_err(|_| ConnectionError::InvalidRequestHeader)?;
 
         if !request_header.is_valid_websocket_request() {
             return Err(ConnectionError::InvalidRequestHeader);
