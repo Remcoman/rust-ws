@@ -7,7 +7,7 @@ use std::{
 
 use crate::message::Message;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OpCode {
     Continuation,
     Text,
@@ -33,6 +33,7 @@ impl Display for FrameError {
 }
 impl std::error::Error for FrameError {}
 
+#[derive(Debug)]
 pub struct Frame {
     pub fin: bool,
     pub rsv1: bool,
@@ -95,11 +96,11 @@ impl Frame {
 
         let total_len = self.application_data.len();
         if total_len <= 125 {
-            b |= total_len.to_be() as u8;
+            b |= (total_len as u8).to_be();
         } else if (total_len as u16) <= u16::MAX {
-            b |= 126;
+            b |= (126_u8).to_be();
         } else {
-            b |= 127;
+            b |= (127_u8).to_be();
         }
 
         bytes.push(b);
@@ -259,9 +260,34 @@ impl From<Message> for Frame {
             opcode,
             mask: false,
             masking_key: None,
-            extension_data: vec![],
             application_data,
             ..Default::default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::frame::OpCode;
+
+    use super::Frame;
+
+    #[test]
+    fn can_serialize_frames() {
+        let frame = Frame {
+            application_data: "hello".as_bytes().to_vec(),
+            opcode: OpCode::Text,
+            ..Default::default()
+        };
+
+        let frame_bytes = frame.to_bytes();
+        let mut slice = frame_bytes.as_slice();
+
+        let read_frame = Frame::read(&mut slice).unwrap();
+
+        assert_eq!(read_frame.application_data, frame.application_data);
+        assert_eq!(read_frame.fin, frame.fin);
+        assert_eq!(read_frame.mask, frame.mask);
+        assert_eq!(read_frame.opcode, frame.opcode);
     }
 }

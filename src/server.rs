@@ -1,25 +1,38 @@
 use std::{
+    convert::TryInto,
     fmt::Display,
     io::{ErrorKind, Write},
-    net::{TcpListener, TcpStream},
+    net::{SocketAddr, TcpListener, TcpStream},
     stream::Stream,
     task::Poll,
 };
 
 use crate::{connection::WebSocketConnection, http::HTTPHeader};
 
-pub struct WebSocketServerOptions {
+pub struct WebSocketServerOptions<'a> {
     pub port: u16,
+    pub host: &'a str,
 }
 
-pub struct WebSocketServer {
-    options: WebSocketServerOptions,
+impl Default for WebSocketServerOptions<'_> {
+    fn default() -> Self {
+        WebSocketServerOptions {
+            port: 80,
+            host: "0.0.0.0",
+        }
+    }
+}
+
+pub struct WebSocketServer<'a> {
+    options: WebSocketServerOptions<'a>,
     listener: TcpListener,
 }
 
-impl WebSocketServer {
-    pub fn listen(options: WebSocketServerOptions) -> Result<Self, Box<dyn std::error::Error>> {
-        let listener = TcpListener::bind(format!("0.0.0.0:{}", options.port))?;
+impl<'a> WebSocketServer<'a> {
+    pub fn listen(options: WebSocketServerOptions<'a>) -> Result<Self, Box<dyn std::error::Error>> {
+        let addr: SocketAddr = format!("0.0.0.0:{}", options.port).parse()?;
+
+        let listener = TcpListener::bind(addr)?;
         //listener.set_nonblocking(true)?;
 
         Ok(WebSocketServer { options, listener })

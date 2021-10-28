@@ -31,6 +31,10 @@ impl WebSocketClient {
         })
     }
 
+    pub fn on_message(&self, f: impl Fn(Message) + Send + 'static) {
+        self.connection.on_message(f)
+    }
+
     pub fn send(&mut self, message: Message) -> Result<(), std::io::Error> {
         self.connection.send(message)
     }
