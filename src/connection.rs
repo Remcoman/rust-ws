@@ -2,7 +2,7 @@ use std::{
     convert::TryInto,
     io::{BufReader, Read, Write},
     net::TcpStream,
-    thread,
+    thread::{self, JoinHandle},
 };
 
 use crate::{
@@ -26,14 +26,14 @@ impl WebSocketConnection {
         MessageIter::new(&mut self.reader)
     }
 
-    pub fn on_message(&self, f: impl Fn(Message) + Send + 'static) {
+    pub fn on_message(&self, f: impl Fn(Message) + Send + 'static) -> JoinHandle<()> {
         let mut reader_clone = self.reader.clone();
         thread::spawn(move || {
             let iter = MessageIter::new(&mut reader_clone);
             for message in iter.ok() {
                 (f)(message);
             }
-        });
+        })
     }
 
     pub fn send(&mut self, message: Message) -> Result<(), std::io::Error> {

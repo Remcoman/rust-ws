@@ -1,37 +1,49 @@
 use std::{
     io::{Read, Write},
-    net::{SocketAddr, TcpStream},
+    net::{TcpStream, ToSocketAddrs},
+    thread::JoinHandle,
 };
 
 use crate::{
     connection::{MessageIter, WebSocketConnection},
     http::HTTPHeader,
     message::Message,
+    server::ConnectionError,
 };
 
-pub struct WebSocketClientOptions {
-    pub addr: SocketAddr,
+pub struct WebSocketClientOptions<S: ToSocketAddrs> {
+    pub addr: S,
 }
 
 pub struct WebSocketClient {
-    options: WebSocketClientOptions,
     connection: WebSocketConnection,
 }
 
 impl WebSocketClient {
-    pub fn connect(options: WebSocketClientOptions) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut stream = TcpStream::connect(options.addr)?;
+    pub fn connect<S: ToSocketAddrs>(
+        options: WebSocketClientOptions<S>,
+    ) -> Result<Self, ConnectionError> {
+        let mut stream =
+            TcpStream::connect(options.addr).map_err(|_e| ConnectionError::UnknownError)?;
 
         let request = HTTPHeader::websocket_request();
-        stream.write_all(&request.to_bytes())?;
+        stream
+            .write_all(&request.to_bytes())
+            .map_err(|_e| ConnectionError::UnknownError)?;
+
+        let response_header =
+            HTTPHeader::read(&mut stream).map_err(|_| ConnectionError::InvalidRequestHeader)?;
+
+        if !response_header.is_valid_websocket_response() {
+            return Err(ConnectionError::InvalidRequestHeader);
+        }
 
         Ok(Self {
-            options,
             connection: WebSocketConnection::new(stream),
         })
     }
 
-    pub fn on_message(&self, f: impl Fn(Message) + Send + 'static) {
+    pub fn on_message(&self, f: impl Fn(Message) + Send + 'static) -> JoinHandle<()> {
         self.connection.on_message(f)
     }
 

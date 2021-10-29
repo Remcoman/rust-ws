@@ -188,6 +188,23 @@ impl HTTPHeader {
         ));
     }
 
+    pub fn is_valid_websocket_response(&self) -> bool {
+        let request = self.get_leading_line();
+        if request != b"HTTP/1.1 101 Switching Protocols" {
+            return false;
+        }
+
+        if !matches!(self.get_value(b"Connection"), Some(b"Upgrade")) {
+            return false;
+        }
+
+        if !matches!(self.get_value(b"Upgrade"), Some(b"websocket")) {
+            return false;
+        }
+
+        true
+    }
+
     pub fn is_valid_websocket_request(&self) -> bool {
         let request = self.get_leading_line();
         if !request.starts_with(b"GET") {
@@ -227,10 +244,6 @@ impl HTTPHeader {
         for line in lines {
             match s {
                 State::Version => {
-                    if !line.starts_with(b"GET") {
-                        return Err(InvalidHTTPHeader::MissingLeadingLine);
-                    }
-
                     header.set_leading_line(line);
 
                     s = State::Pair

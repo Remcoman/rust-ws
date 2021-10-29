@@ -1,38 +1,32 @@
 use std::{
     fmt::Display,
     io::{ErrorKind, Write},
-    net::{SocketAddr, TcpListener, TcpStream},
+    net::{TcpListener, TcpStream, ToSocketAddrs},
 };
 
 use crate::{connection::WebSocketConnection, http::HTTPHeader};
 
-pub struct WebSocketServerOptions<'a> {
-    pub port: u16,
-    pub host: &'a str,
+pub struct WebSocketServerOptions<S: ToSocketAddrs> {
+    pub addr: S,
 }
 
-impl Default for WebSocketServerOptions<'_> {
+impl Default for WebSocketServerOptions<&str> {
     fn default() -> Self {
-        WebSocketServerOptions {
-            port: 80,
-            host: "0.0.0.0",
-        }
+        Self { addr: "0.0.0.0:80" }
     }
 }
 
-pub struct WebSocketServer<'a> {
-    options: WebSocketServerOptions<'a>,
+pub struct WebSocketServer {
     listener: TcpListener,
 }
 
-impl<'a> WebSocketServer<'a> {
-    pub fn listen(options: WebSocketServerOptions<'a>) -> Result<Self, Box<dyn std::error::Error>> {
-        let addr: SocketAddr = format!("0.0.0.0:{}", options.port).parse()?;
+impl WebSocketServer {
+    pub fn listen<S: ToSocketAddrs>(
+        options: WebSocketServerOptions<S>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let listener = TcpListener::bind(options.addr)?;
 
-        let listener = TcpListener::bind(addr)?;
-        //listener.set_nonblocking(true)?;
-
-        Ok(WebSocketServer { options, listener })
+        Ok(WebSocketServer { listener })
     }
 
     pub fn iter_connections(&self) -> ConnectionIter<'_> {

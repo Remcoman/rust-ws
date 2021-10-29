@@ -4,8 +4,7 @@ use rust_ws::{message::Message, server::WebSocketServer, server::WebSocketServer
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let s = WebSocketServer::listen(WebSocketServerOptions {
-        port: 3001,
-        ..Default::default()
+        addr: "0.0.0.0:3000",
     })
     .unwrap();
 
@@ -13,6 +12,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // loop through each connection and auto accept
     for conn in s.iter_connections().auto_accept() {
+        println!("conn");
+
         // create a sender which can be used to...send messages
         let mut sender = conn.sender();
 
