@@ -1,5 +1,3 @@
-#![feature(async_stream)]
-
 pub mod connection;
 mod frame;
 pub mod http;

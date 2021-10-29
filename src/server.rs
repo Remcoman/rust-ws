@@ -1,10 +1,7 @@
 use std::{
-    convert::TryInto,
     fmt::Display,
     io::{ErrorKind, Write},
     net::{SocketAddr, TcpListener, TcpStream},
-    stream::Stream,
-    task::Poll,
 };
 
 use crate::{connection::WebSocketConnection, http::HTTPHeader};
@@ -121,21 +118,6 @@ impl Iterator for ConnectionIter<'_> {
     }
 }
 
-impl Stream for ConnectionIter<'_> {
-    type Item = IterItem;
-
-    fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        match self.try_get_next() {
-            Ok(s) => Poll::Ready(Some(Ok(s))),
-            Err(ConnectionError::WouldBlock) => Poll::Pending,
-            Err(e) => Poll::Ready(Some(Err(e))),
-        }
-    }
-}
-
 pub struct WebsocketConnectionPreAccept {
     stream: TcpStream,
     header: HTTPHeader,
@@ -149,7 +131,7 @@ impl WebsocketConnectionPreAccept {
     pub fn accept(mut self) -> Result<WebSocketConnection, ConnectionError> {
         let response_header = self.header.into_websocket_response();
         self.stream
-            .write(&response_header.to_bytes())
+            .write_all(&response_header.to_bytes())
             .map_err(|_| ConnectionError::UnknownError)?;
         Ok(WebSocketConnection::new(self.stream))
     }

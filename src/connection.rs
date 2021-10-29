@@ -2,8 +2,6 @@ use std::{
     convert::TryInto,
     io::{BufReader, Read, Write},
     net::TcpStream,
-    stream::Stream,
-    task::Poll,
     thread,
 };
 
@@ -97,22 +95,6 @@ impl<'a, R: Read> MessageIter<'a, R> {
                 Err(FrameError::WouldBlock)
             }
         })
-    }
-}
-
-impl<R: Read> Stream for MessageIter<'_, R> {
-    type Item = Message;
-
-    fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
-        match self.try_read_one() {
-            Ok(frame) => Poll::Ready(Some(frame.try_into().unwrap())),
-            Err(FrameError::WouldBlock) => Poll::Pending,
-            Err(FrameError::Eof) => Poll::Ready(None),
-            Err(_e) => todo!(),
-        }
     }
 }
 
