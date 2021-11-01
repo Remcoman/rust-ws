@@ -3,7 +3,8 @@ use std::{convert::TryFrom, fmt::Display, io::Read, str::from_utf8};
 #[cfg(feature = "websocket_key")]
 use sha1::Sha1;
 
-static MAGIC: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+#[cfg(feature = "websocket_key")]
+static WEBSOCKET_KEY_MAGIC: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 enum State {
     Version,
@@ -139,7 +140,7 @@ impl HTTPHeader {
 
         #[cfg(feature = "websocket_key")]
         if let Some(b) = self.get_value(b"Sec-WebSocket-Key") {
-            let res = [b, MAGIC.as_bytes()].concat();
+            let res = [b, WEBSOCKET_KEY_MAGIC.as_bytes()].concat();
             let mut hasher = Sha1::new();
             hasher.update(&res);
             let hash = base64::encode(hasher.digest().bytes());
