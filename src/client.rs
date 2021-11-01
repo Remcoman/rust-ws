@@ -1,7 +1,6 @@
 use std::{
     io::{Read, Write},
     net::{TcpStream, ToSocketAddrs},
-    thread::JoinHandle,
 };
 
 use crate::{

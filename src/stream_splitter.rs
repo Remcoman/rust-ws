@@ -15,12 +15,6 @@ impl std::io::Write for TcpWriterHalf {
     }
 }
 
-impl TcpWriterHalf {
-    pub fn shutdown(&mut self) -> std::io::Result<()> {
-        self.0.lock().unwrap().shutdown(std::net::Shutdown::Both)
-    }
-}
-
 impl Clone for TcpWriterHalf {
     fn clone(&self) -> Self {
         Self(self.0.clone())
@@ -38,12 +32,6 @@ impl std::io::Read for TcpReaderHalf {
 impl Clone for TcpReaderHalf {
     fn clone(&self) -> Self {
         Self(self.0.clone())
-    }
-}
-
-impl TcpReaderHalf {
-    pub fn shutdown(&mut self) -> std::io::Result<()> {
-        self.0.lock().unwrap().shutdown(std::net::Shutdown::Both)
     }
 }
 
