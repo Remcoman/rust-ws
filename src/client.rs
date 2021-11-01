@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    connection::{MessageIter, WebSocketConnection},
+    connection::{MessageHandler, MessageIter, WebSocketConnection},
     http::HTTPHeader,
     message::Message,
     server::ConnectionError,
@@ -43,7 +43,7 @@ impl WebSocketClient {
         })
     }
 
-    pub fn on_message(&self, f: impl Fn(Message) + Send + 'static) -> JoinHandle<()> {
+    pub fn on_message(&self, f: impl Fn(Message) + Send + 'static) -> MessageHandler {
         self.connection.on_message(f)
     }
 

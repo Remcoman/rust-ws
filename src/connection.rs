@@ -2,7 +2,9 @@ use std::{
     convert::TryInto,
     io::{BufReader, Read, Write},
     net::TcpStream,
+    sync::mpsc::{channel, Sender as ChannelSender},
     thread::{self, JoinHandle},
+    time::Duration,
 };
 
 use crate::{
@@ -11,6 +13,21 @@ use crate::{
     stream_splitter::{split, TcpReaderHalf, TcpWriterHalf},
 };
 
+pub struct MessageHandler {
+    thread: JoinHandle<()>,
+    sender: ChannelSender<()>,
+}
+
+impl MessageHandler {
+    pub fn stop(self) {
+        self.sender.send(()).unwrap();
+    }
+
+    pub fn join(self) {
+        self.thread.join().unwrap()
+    }
+}
+
 pub struct WebSocketConnection {
     reader: TcpReaderHalf,
     writer: TcpWriterHalf,
@@ -18,7 +35,12 @@ pub struct WebSocketConnection {
 
 impl WebSocketConnection {
     pub fn new(stream: TcpStream) -> Self {
+        stream
+            .set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
+
         let (reader, writer) = split(stream);
+
         WebSocketConnection { reader, writer }
     }
 
@@ -26,14 +48,24 @@ impl WebSocketConnection {
         MessageIter::new(&mut self.reader)
     }
 
-    pub fn on_message(&self, f: impl Fn(Message) + Send + 'static) -> JoinHandle<()> {
+    pub fn on_message(&self, f: impl Fn(Message) + Send + 'static) -> MessageHandler {
         let mut reader_clone = self.reader.clone();
-        thread::spawn(move || {
+        let (sender, receiver) = channel();
+        let join = thread::spawn(move || {
+            // create an iterator which stops when the channel sends a empty tuple
+            let stopper =
+                std::iter::repeat(()).take_while(|_| !matches!(receiver.try_recv(), Ok(())));
+
             let iter = MessageIter::new(&mut reader_clone);
-            for message in iter.ok() {
+
+            for (message, _) in iter.ok().zip(stopper) {
                 (f)(message);
             }
-        })
+        });
+        MessageHandler {
+            thread: join,
+            sender,
+        }
     }
 
     pub fn send(&mut self, message: Message) -> Result<(), std::io::Error> {

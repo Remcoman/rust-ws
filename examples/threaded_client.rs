@@ -12,14 +12,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("start");
 
-    let handle = client.on_message(|message| {
+    let handler = client.on_message(|message| {
         println!("{:?}", message);
     });
 
     std::thread::sleep(Duration::from_secs(3));
-    client.send(Message::Text("hoi".to_owned())).unwrap();
+    client
+        .send(Message::Text("message from client".to_owned()))
+        .unwrap();
 
-    handle.join().unwrap();
+    let joiner = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(20));
+        handler.stop();
+    });
+
+    joiner.join().unwrap();
 
     println!("done");
 

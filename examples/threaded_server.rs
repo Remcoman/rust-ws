@@ -24,9 +24,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // spawn a new thread that after 3 seconds will send a message through the connection
         std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_secs(3));
+            std::thread::sleep(Duration::from_secs(6));
             println!("sending message back");
-            sender.send(Message::Text("hoi".to_owned())).unwrap()
+            sender
+                .send(Message::Text("message from server".to_owned()))
+                .unwrap()
         });
     }
 
