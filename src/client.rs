@@ -50,7 +50,7 @@ impl WebSocketClient {
         self.connection.send(message)
     }
 
-    pub fn iter_messages(&mut self) -> MessageIter<impl Read> {
+    pub fn iter_messages(&mut self) -> MessageIter<impl Read, impl Write> {
         self.connection.iter_messages()
     }
 }

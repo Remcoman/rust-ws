@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    frame::{Frame, FrameError},
+    frame::{Frame, FrameError, OpCode},
     message::Message,
     stream_splitter::{split, TcpReaderHalf, TcpWriterHalf},
 };
@@ -36,7 +36,7 @@ pub struct WebSocketConnection {
 impl WebSocketConnection {
     pub fn new(stream: TcpStream) -> Self {
         stream
-            .set_read_timeout(Some(Duration::from_millis(500)))
+            .set_read_timeout(Some(Duration::from_millis(10)))
             .unwrap();
 
         let (reader, writer) = split(stream);
@@ -44,19 +44,22 @@ impl WebSocketConnection {
         WebSocketConnection { reader, writer }
     }
 
-    pub fn iter_messages(&mut self) -> MessageIter<impl Read> {
-        MessageIter::new(&mut self.reader)
+    pub fn iter_messages(&mut self) -> MessageIter<impl Read, impl Write> {
+        MessageIter::new(&mut self.reader, &mut self.writer)
     }
 
-    pub fn on_message(&self, f: impl Fn(Message) + Send + 'static) -> MessageHandler {
+    pub fn on_message(&self, mut f: impl FnMut(Message) + Send + 'static) -> MessageHandler {
         let mut reader_clone = self.reader.clone();
+        let mut writer_clone = self.writer.clone();
+
         let (sender, receiver) = channel();
+
         let join = thread::spawn(move || {
             // create an iterator which stops when the channel sends a empty tuple
             let stopper =
                 std::iter::repeat(()).take_while(|_| !matches!(receiver.try_recv(), Ok(())));
 
-            let iter = MessageIter::new(&mut reader_clone);
+            let iter = MessageIter::new(&mut reader_clone, &mut writer_clone);
 
             for (message, _) in iter.ok().zip(stopper) {
                 (f)(message);
@@ -66,6 +69,12 @@ impl WebSocketConnection {
             thread: join,
             sender,
         }
+    }
+
+    pub fn close(self) -> Result<(), std::io::Error> {
+        self.reader.shutdown()?;
+        self.writer.shutdown()?;
+        Ok(())
     }
 
     pub fn send(&mut self, message: Message) -> Result<(), std::io::Error> {
@@ -92,15 +101,17 @@ impl<W: Write> Sender<W> {
     }
 }
 
-pub struct MessageIter<'a, R: Read> {
+pub struct MessageIter<'a, R: Read, W: Write> {
     reader: BufReader<&'a mut R>,
+    writer: &'a mut W,
     fragmented_seq: Vec<Frame>,
 }
 
-impl<'a, R: Read> MessageIter<'a, R> {
-    pub fn new(r: &'a mut R) -> Self {
+impl<'a, R: Read, W: Write> MessageIter<'a, R, W> {
+    pub fn new(r: &'a mut R, writer: &'a mut W) -> Self {
         MessageIter {
             reader: BufReader::new(r),
+            writer,
             fragmented_seq: vec![],
         }
     }
@@ -130,12 +141,25 @@ impl<'a, R: Read> MessageIter<'a, R> {
     }
 }
 
-impl<R: Read> Iterator for MessageIter<'_, R> {
+impl<R: Read, W: Write> Iterator for MessageIter<'_, R, W> {
     type Item = Result<Message, Box<dyn std::error::Error>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.try_read_one() {
+                Ok(frame) if frame.opcode == OpCode::ConnectionClose => {
+                    self.writer.write_all(&frame.to_bytes()).unwrap();
+                    self.writer.flush().unwrap();
+                    return None;
+                }
+                Ok(frame) if frame.opcode == OpCode::Ping => {
+                    let pong = Frame {
+                        opcode: OpCode::Pong,
+                        ..frame
+                    };
+                    self.writer.write_all(&pong.to_bytes()).unwrap();
+                    continue;
+                }
                 Ok(frame) => {
                     let message: Message = match frame.try_into() {
                         Ok(message) => message,

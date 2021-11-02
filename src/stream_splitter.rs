@@ -21,11 +21,23 @@ impl Clone for TcpWriterHalf {
     }
 }
 
+impl TcpWriterHalf {
+    pub fn shutdown(&self) -> std::io::Result<()> {
+        self.0.lock().unwrap().shutdown(std::net::Shutdown::Write)
+    }
+}
+
 pub struct TcpReaderHalf(Arc<Mutex<TcpStream>>);
 
 impl std::io::Read for TcpReaderHalf {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.0.lock().unwrap().read(buf)
+    }
+}
+
+impl TcpReaderHalf {
+    pub fn shutdown(&self) -> std::io::Result<()> {
+        self.0.lock().unwrap().shutdown(std::net::Shutdown::Read)
     }
 }
 

@@ -18,11 +18,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut sender = conn.sender();
 
         // register a callback for messages
-        conn.on_message(|message| {
+        conn.on_message(move |message| {
             println!("{:?}", message);
+            //sender.send(Message::Text("hoi".to_owned())).unwrap();
         });
 
-        // spawn a new thread that after 3 seconds will send a message through the connection
+        //spawn a new thread that after 3 seconds will send a message through the connection
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_secs(6));
             println!("sending message back");
