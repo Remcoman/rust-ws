@@ -31,6 +31,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .send(Message::Text("message from server".to_owned()))
                 .unwrap()
         });
+
+        std::thread::sleep(Duration::from_secs(15));
+        conn.close().unwrap();
     }
 
     println!("done");

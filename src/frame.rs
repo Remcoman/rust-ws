@@ -57,10 +57,17 @@ impl Frame {
 
         let first_frame = &frames[0];
 
-        Frame {
+        Self {
             opcode: first_frame.opcode,
             fin: true,
             application_data,
+            ..Default::default()
+        }
+    }
+
+    pub fn connection_close() -> Self {
+        Self {
+            opcode: OpCode::ConnectionClose,
             ..Default::default()
         }
     }

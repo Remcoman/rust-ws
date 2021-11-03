@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    connection::{MessageHandler, MessageIter, WebSocketConnection},
+    connection::{FrameIter, MessageHandler, WebSocketConnection},
     http::HTTPHeader,
     message::Message,
     server::ConnectionError,
@@ -50,7 +50,7 @@ impl WebSocketClient {
         self.connection.send(message)
     }
 
-    pub fn iter_messages(&mut self) -> MessageIter<impl Read, impl Write> {
+    pub fn iter_messages(&mut self) -> impl Iterator<Item = Message> + '_ {
         self.connection.iter_messages()
     }
 }
