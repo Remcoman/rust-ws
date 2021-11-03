@@ -170,7 +170,7 @@ impl<'a> SpecialFrameHandler<'a> {
                 Ok(true)
             }
             OpCode::Ping => {
-                let pong = Frame::connection_close();
+                let pong = Frame::pong();
                 self.writer.write_all(&pong.to_bytes())?;
                 Ok(true)
             }

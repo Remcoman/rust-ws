@@ -72,6 +72,20 @@ impl Frame {
         }
     }
 
+    pub fn ping() -> Self {
+        Self {
+            opcode: OpCode::Ping,
+            ..Default::default()
+        }
+    }
+
+    pub fn pong() -> Self {
+        Self {
+            opcode: OpCode::Pong,
+            ..Default::default()
+        }
+    }
+
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = vec![];
 
