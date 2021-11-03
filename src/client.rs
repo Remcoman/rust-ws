@@ -1,13 +1,13 @@
 use std::{
-    io::{Read, Write},
+    io::Write,
     net::{TcpStream, ToSocketAddrs},
 };
 
 use crate::{
-    connection::{FrameIter, MessageHandler, WebSocketConnection},
+    connection::{MessageHandler, WebSocketConnection},
+    error::WebSocketError,
     http::HTTPHeader,
     message::Message,
-    server::ConnectionError,
 };
 
 pub struct WebSocketClientOptions<S: ToSocketAddrs> {
@@ -21,20 +21,20 @@ pub struct WebSocketClient {
 impl WebSocketClient {
     pub fn connect<S: ToSocketAddrs>(
         options: WebSocketClientOptions<S>,
-    ) -> Result<Self, ConnectionError> {
+    ) -> Result<Self, WebSocketError> {
         let mut stream =
-            TcpStream::connect(options.addr).map_err(|_e| ConnectionError::UnknownError)?;
+            TcpStream::connect(options.addr).map_err(|_e| WebSocketError::UnknownError)?;
 
         let request = HTTPHeader::websocket_request();
         stream
             .write_all(&request.to_bytes())
-            .map_err(|_e| ConnectionError::UnknownError)?;
+            .map_err(|_e| WebSocketError::UnknownError)?;
 
         let response_header =
-            HTTPHeader::read(&mut stream).map_err(|_| ConnectionError::InvalidRequestHeader)?;
+            HTTPHeader::read(&mut stream).map_err(|_| WebSocketError::InvalidRequestHeader)?;
 
         if !response_header.is_valid_websocket_response() {
-            return Err(ConnectionError::InvalidRequestHeader);
+            return Err(WebSocketError::InvalidRequestHeader);
         }
 
         Ok(Self {
@@ -46,7 +46,7 @@ impl WebSocketClient {
         self.connection.on_message(f)
     }
 
-    pub fn send(&mut self, message: Message) -> Result<(), std::io::Error> {
+    pub fn send(&mut self, message: Message) -> Result<(), WebSocketError> {
         self.connection.send(message)
     }
 

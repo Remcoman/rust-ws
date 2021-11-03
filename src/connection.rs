@@ -11,9 +11,9 @@ use std::{
 };
 
 use crate::{
+    error::WebSocketError,
     frame::{Frame, FrameError, OpCode},
     message::Message,
-    server::ConnectionError,
     stream_splitter::{split, TcpReaderHalf, TcpWriterHalf},
 };
 
@@ -101,9 +101,9 @@ impl WebSocketConnection {
         }
     }
 
-    pub fn close(mut self) -> Result<(), ConnectionError> {
+    pub fn close(mut self) -> Result<(), WebSocketError> {
         if *self.state.read().unwrap() != ConnectionState::Open {
-            return Err(ConnectionError::UnknownError);
+            return Err(WebSocketError::InvalidConnectionState);
         }
 
         *self.state.write().unwrap() = ConnectionState::CloseSent;
@@ -112,16 +112,23 @@ impl WebSocketConnection {
 
         self.writer
             .write_all(&f.to_bytes())
-            .or(Err(ConnectionError::UnknownError))?;
+            .or(Err(WebSocketError::UnknownError))?;
 
-        self.writer.flush().or(Err(ConnectionError::UnknownError))?;
+        self.writer.flush().or(Err(WebSocketError::UnknownError))?;
 
         Ok(())
     }
 
-    pub fn send(&mut self, message: Message) -> Result<(), std::io::Error> {
+    pub fn send(&mut self, message: Message) -> Result<(), WebSocketError> {
+        if *self.state.read().unwrap() != ConnectionState::Open {
+            return Err(WebSocketError::InvalidConnectionState);
+        }
+
         let b = Frame::from(message).to_bytes();
-        self.writer.write_all(&b).and(Ok(()))
+        self.writer
+            .write_all(&b)
+            .and(Ok(()))
+            .or(Err(WebSocketError::UnknownError))
     }
 
     pub fn sender(&self) -> Sender<impl Write> {
