@@ -77,13 +77,11 @@ impl Iterator for ConnectionIter<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let conn = match self.try_get_next() {
-                Ok(s) => s,
-                Err(WebSocketError::WouldBlock) => continue,
-                Err(e) => return Some(Err(e)),
-            };
-
-            return Some(Ok(conn));
+            let conn = self.try_get_next();
+            if let Err(WebSocketError::WouldBlock) = conn {
+                continue;
+            }
+            return Some(conn);
         }
     }
 }
