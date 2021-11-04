@@ -1,10 +1,9 @@
 use std::{
-    fmt::Display,
     io::{ErrorKind, Write},
     net::{TcpListener, TcpStream, ToSocketAddrs},
 };
 
-use crate::{connection::WebSocketConnection, http::HTTPHeader};
+use crate::{connection::WebSocketConnection, error::WebSocketError, http::HTTPHeader};
 
 pub struct WebSocketServerOptions<S: ToSocketAddrs> {
     pub addr: S,
@@ -23,7 +22,7 @@ pub struct WebSocketServer {
 impl WebSocketServer {
     pub fn listen<S: ToSocketAddrs>(
         options: WebSocketServerOptions<S>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, std::io::Error> {
         let listener = TcpListener::bind(options.addr)?;
 
         Ok(WebSocketServer { listener })
@@ -34,30 +33,7 @@ impl WebSocketServer {
     }
 }
 
-#[derive(Debug)]
-pub enum ConnectionError {
-    InvalidRequestHeader,
-    WouldBlock,
-    UnknownError,
-}
-impl Display for ConnectionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidRequestHeader => {
-                write!(f, "Invalid request header")
-            }
-            Self::UnknownError => {
-                write!(f, "Unknown connection error")
-            }
-            Self::WouldBlock => {
-                write!(f, "Would block")
-            }
-        }
-    }
-}
-impl std::error::Error for ConnectionError {}
-
-pub type IterItem = Result<WebsocketConnectionPreAccept, ConnectionError>;
+pub type IterItem = Result<WebsocketConnectionPreAccept, WebSocketError>;
 
 pub struct ConnectionIter<'a> {
     listener: &'a TcpListener,
@@ -78,15 +54,15 @@ impl<'a> ConnectionIter<'a> {
 
     fn try_get_next(&self) -> IterItem {
         let (mut stream, _) = self.listener.accept().map_err(|e| match e.kind() {
-            ErrorKind::WouldBlock => ConnectionError::WouldBlock,
-            _ => ConnectionError::UnknownError,
+            ErrorKind::WouldBlock => WebSocketError::WouldBlock,
+            _ => WebSocketError::UnknownError,
         })?;
 
         let request_header =
-            HTTPHeader::read(&mut stream).map_err(|_| ConnectionError::InvalidRequestHeader)?;
+            HTTPHeader::read(&mut stream).map_err(|_| WebSocketError::InvalidRequestHeader)?;
 
         if !request_header.is_valid_websocket_request() {
-            return Err(ConnectionError::InvalidRequestHeader);
+            return Err(WebSocketError::InvalidRequestHeader);
         }
 
         Ok(WebsocketConnectionPreAccept {
@@ -103,7 +79,7 @@ impl Iterator for ConnectionIter<'_> {
         loop {
             let conn = match self.try_get_next() {
                 Ok(s) => s,
-                Err(ConnectionError::WouldBlock) => continue,
+                Err(WebSocketError::WouldBlock) => continue,
                 Err(e) => return Some(Err(e)),
             };
 
@@ -122,11 +98,11 @@ impl WebsocketConnectionPreAccept {
         self.header.get_value(name)
     }
 
-    pub fn accept(mut self) -> Result<WebSocketConnection, ConnectionError> {
+    pub fn accept(mut self) -> Result<WebSocketConnection, WebSocketError> {
         let response_header = self.header.into_websocket_response();
         self.stream
             .write_all(&response_header.to_bytes())
-            .map_err(|_| ConnectionError::UnknownError)?;
+            .map_err(|_| WebSocketError::UnknownError)?;
         Ok(WebSocketConnection::new(self.stream))
     }
 }
